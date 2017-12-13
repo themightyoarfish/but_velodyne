@@ -70,14 +70,8 @@ Calibration6DoF calibration(bool doRefinement = false)
 
   // Marker detection:
   Calibration3DMarker marker(frame_gray, projection_matrix, pointcloud.getPointCloud(), STRAIGHT_DISTANCE, RADIUS);
-  vector<float> radii2D;
-  vector<Point2f> centers2D;
-  if (!marker.detectCirclesInImage(centers2D, radii2D))
-  {
-    return Calibration6DoF::wrong();
-  }
-  float radius2D = accumulate(radii2D.begin(), radii2D.end(), 0.0) / radii2D.size();
 
+  ROS_INFO("Detecting in cloud.");
   vector<float> radii3D;
   vector<Point3f> centers3D;
   if (!marker.detectCirclesInPointCloud(centers3D, radii3D))
@@ -85,6 +79,15 @@ Calibration6DoF calibration(bool doRefinement = false)
     return Calibration6DoF::wrong();
   }
   float radius3D = accumulate(radii3D.begin(), radii3D.end(), 0.0) / radii3D.size();
+
+  ROS_INFO("Detecting in image.");
+  vector<float> radii2D;
+  vector<Point2f> centers2D;
+  if (!marker.detectCirclesInImage(centers2D, radii2D))
+  {
+    return Calibration6DoF::wrong();
+  }
+  float radius2D = accumulate(radii2D.begin(), radii2D.end(), 0.0) / radii2D.size();
 
   // rough calibration
   Calibration6DoF translation = Calibration::findTranslation(centers2D, centers3D, projection_matrix, radius2D,
@@ -150,8 +153,9 @@ void callback(const sensor_msgs::ImageConstPtr& msg_img, const sensor_msgs::Came
   }
   else
   {
-    ROS_WARN("Calibration failed - trying again after 5s ...");
-    ros::Duration(5).sleep();
+    const int sleep_time = 2;
+    ROS_WARN("Calibration failed - trying again after %ds ...", sleep_time);
+    ros::Duration(sleep_time).sleep();
   }
 }
 

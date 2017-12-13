@@ -6,7 +6,7 @@
  */
 
 #include "but_calibration_camera_velodyne/Calibration3DMarker.h"
-
+#include <pcl/visualization/cloud_viewer.h>
 #include <ros/assert.h>
 
 using namespace std;
@@ -26,25 +26,33 @@ Calibration3DMarker::Calibration3DMarker(cv::Mat _frame_gray, cv::Mat _P, ::Poin
   Velodyne::Velodyne scan(pc);
   scan.getRings();
   scan.intensityByRangeDiff();
-  PointCloud<Velodyne::Point> visible_cloud;
-  scan.project(P, Rect(0, 0, 640, 480), &visible_cloud);
+  // PointCloud<Velodyne::Point> visible_cloud;
+  // scan.project(P, Rect(0, 0, 640, 480), &visible_cloud);
 
-  Velodyne::Velodyne visible_scan(visible_cloud);
-  visible_scan.normalizeIntensity();
-  Velodyne::Velodyne thresholded_scan = visible_scan.threshold(0.1);
+  // Velodyne::Velodyne visible_scan(visible_cloud);
+  // visible_scan.normalizeIntensity();
+  // Velodyne::Velodyne thresholded_scan = visible_scan.threshold(0.);
 
-  PointCloud<PointXYZ>::Ptr xyz_cloud_ptr(thresholded_scan.toPointsXYZ());
+  PointCloud<PointXYZ>::Ptr xyz_cloud_ptr(scan.toPointsXYZ());
 
+  ROS_INFO("Computing Plane");
   SampleConsensusModelPlane<PointXYZ>::Ptr model_p(
       new ::SampleConsensusModelPlane<PointXYZ>(xyz_cloud_ptr));
   RandomSampleConsensus<PointXYZ> ransac(model_p);
-  ransac.setDistanceThreshold(0.05);
+  ransac.setDistanceThreshold(0.1);
   ransac.computeModel();
 
   std::vector<int> inliers_indicies;
   ransac.getInliers(inliers_indicies);
+  ROS_INFO("Plane inliers: %lu", inliers_indicies.size());
 
   copyPointCloud<PointXYZ>(*xyz_cloud_ptr, inliers_indicies, plane);
+
+  // pcl::visualization::CloudViewer viewer("Simple Cloud Viewer");
+  // pcl::PointCloud<pcl::PointXYZ>::Ptr plane_ptr(&plane);
+  // viewer.showCloud(plane_ptr);
+  // while (!viewer.wasStopped());
+
 
   // ---------------- REMOVE LINES ----------------
 
@@ -93,6 +101,7 @@ bool Calibration3DMarker::detectCirclesInPointCloud(vector<Point3f> &centers, ve
      cerr << "detection_cloud size: " << detection_cloud->size() << endl;*/
     spheres_centers = detect4spheres(detection_cloud, radiuses);
 
+    ROS_INFO("Found %lu centers", spheres_centers.size());
     if (spheres_centers.size() == 4)
     {
       order4spheres(spheres_centers);
